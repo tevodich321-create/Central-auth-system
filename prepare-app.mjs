@@ -1,40 +1,35 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { pipeline } from 'node:stream/promises';
 import unzipper from 'unzipper';
 
 const zipPath = path.resolve('Central-auth-system-main.zip');
 const outDir = path.resolve('.render-runtime');
 
-if (!fs.existsSync(zipPath)) {
-  throw new Error(`Missing ${zipPath}`);
-}
+if (!fs.existsSync(zipPath)) throw new Error(`Missing ${zipPath}`);
 
 fs.rmSync(outDir, { recursive: true, force: true });
 fs.mkdirSync(outDir, { recursive: true });
 
-await fs.createReadStream(zipPath)
-  .pipe(unzipper.Extract({ path: outDir }))
-  .promise();
+const archive = await unzipper.Open.file(zipPath);
+console.log(`Archive entries: ${archive.files.length}`);
 
-function findPackage(dir) {
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      const found = findPackage(full);
-      if (found) return found;
-    } else if (entry.isFile() && entry.name === 'package.json') {
-      return full;
-    }
+for (const entry of archive.files) {
+  const target = path.resolve(outDir, entry.path);
+  if (!target.startsWith(outDir + path.sep)) throw new Error(`Unsafe archive path: ${entry.path}`);
+  if (entry.type === 'Directory' || entry.path.endsWith('/')) {
+    fs.mkdirSync(target, { recursive: true });
+    continue;
   }
-  return null;
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  await pipeline(entry.stream(), fs.createWriteStream(target, { mode: 0o644 }));
 }
 
-const packagePath = findPackage(outDir);
-if (!packagePath) throw new Error('Could not find the application package.json in the archive.');
+const appRoot = path.join(outDir, 'central-auth-v3.3.0');
+const packagePath = path.join(appRoot, 'package.json');
+const serverPath = path.join(appRoot, 'src', 'server.js');
 
-const appRoot = path.dirname(packagePath);
-if (!fs.existsSync(path.join(appRoot, 'src', 'server.js'))) {
-  throw new Error(`Application root ${appRoot} does not contain src/server.js.`);
-}
+if (!fs.existsSync(packagePath)) throw new Error('Archive extraction succeeded, but central-auth-v3.3.0/package.json is missing.');
+if (!fs.existsSync(serverPath)) throw new Error('Archive extraction succeeded, but central-auth-v3.3.0/src/server.js is missing.');
 
 console.log(`Prepared application at ${appRoot}`);

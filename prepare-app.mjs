@@ -102,7 +102,38 @@ replaceOnce(
 replaceOnce(
   emailFile,
   "    if (!this.config.smtpHost) {",
-  `    if(provider==='brevo') {\n      if(!this.config.brevoApiKey){const err=new Error('Brevo API key is not configured. Email delivery is BLOCKED.');err.code='BREVO_NOT_CONFIGURED';throw err;}\n      if(this.config.nodeEnv==='production' && !String(this.config.brevoEndpoint).startsWith('https://')){const err=new Error('Brevo endpoint must use HTTPS in production.');err.code='BREVO_INSECURE_ENDPOINT';throw err;}\n      const controller=new AbortController();\n      const timeout=setTimeout(()=>controller.abort(),10000);\n      const fromMatch=String(this.config.emailFrom).match(/<([^>]+)>/);\n      const fromEmail=(fromMatch?.[1]||String(this.config.emailFrom)).trim();\n      const fromName=fromMatch ? String(this.config.emailFrom).replace(/\\s*<[^>]+>\\s*$/,'').trim() : 'Central Auth';\n      let response;\n      try {\n        response=await fetch(this.config.brevoEndpoint,{\n          method:'POST',\n          headers:{'api-key':this.config.brevoApiKey,'Content-Type':'application/json','Accept':'application/json'},\n          body:JSON.stringify({sender:{name:fromName,email:fromEmail},to:[{email:to}],subject,textContent:text,htmlContent:html}),\n          signal:controller.signal,\n          redirect:'error',\n        });\n      } catch(error){\n        const err=new Error(error?.name==='AbortError'?'Brevo request timed out.':`Brevo request failed: ${error?.message||'network error'}`);\n        err.code=error?.name==='AbortError'?'BREVO_TIMEOUT':'BREVO_NETWORK_ERROR';\n        throw err;\n      } finally { clearTimeout(timeout); }\n      if(!response.ok){\n        const body=await response.text().catch(()=> '');\n        const err=new Error(`Brevo request failed (${response.status}): ${body.slice(0,500)}`);\n        err.code='BREVO_HTTP_ERROR';\n        throw err;\n      }\n      return;\n    }\n    if (!this.config.smtpHost) {`,
+  "    if(provider==='brevo') {\n" +
+  "      if(!this.config.brevoApiKey){const err=new Error('Brevo API key is not configured. Email delivery is BLOCKED.');err.code='BREVO_NOT_CONFIGURED';throw err;}\n" +
+  "      if(this.config.nodeEnv==='production' && !String(this.config.brevoEndpoint).startsWith('https://')){const err=new Error('Brevo endpoint must use HTTPS in production.');err.code='BREVO_INSECURE_ENDPOINT';throw err;}\n" +
+  "      const controller=new AbortController();\n" +
+  "      const timeout=setTimeout(()=>controller.abort(),10000);\n" +
+  "      const fromMatch=String(this.config.emailFrom).match(/<([^>]+)>/);\n" +
+  "      const fromEmail=(fromMatch?.[1]||String(this.config.emailFrom)).trim();\n" +
+  "      const fromName=fromMatch ? String(this.config.emailFrom).replace(/\\s*<[^>]+>\\s*$/,'').trim() : 'Central Auth';\n" +
+  "      let response;\n" +
+  "      try {\n" +
+  "        response=await fetch(this.config.brevoEndpoint,{\n" +
+  "          method:'POST',\n" +
+  "          headers:{'api-key':this.config.brevoApiKey,'Content-Type':'application/json','Accept':'application/json'},\n" +
+  "          body:JSON.stringify({sender:{name:fromName,email:fromEmail},to:[{email:to}],subject,textContent:text,htmlContent:html}),\n" +
+  "          signal:controller.signal,\n" +
+  "          redirect:'error',\n" +
+  "        });\n" +
+  "      } catch(error){\n" +
+  "        const message=error?.name==='AbortError'?'Brevo request timed out.':('Brevo request failed: '+(error?.message||'network error'));\n" +
+  "        const err=new Error(message);\n" +
+  "        err.code=error?.name==='AbortError'?'BREVO_TIMEOUT':'BREVO_NETWORK_ERROR';\n" +
+  "        throw err;\n" +
+  "      } finally { clearTimeout(timeout); }\n" +
+  "      if(!response.ok){\n" +
+  "        const body=await response.text().catch(()=> '');\n" +
+  "        const err=new Error('Brevo request failed ('+response.status+'): '+body.slice(0,500));\n" +
+  "        err.code='BREVO_HTTP_ERROR';\n" +
+  "        throw err;\n" +
+  "      }\n" +
+  "      return;\n" +
+  "    }\n" +
+  "    if (!this.config.smtpHost) {",
   'Brevo HTTP API sender'
 );
 

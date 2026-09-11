@@ -1,0 +1,12 @@
+{
+  "name": "central-auth-render-bootstrap",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "prepare:app": "node prepare-app.mjs"
+  },
+  "dependencies": {
+    "unzipper": "^0.12.1"
+  }
+}

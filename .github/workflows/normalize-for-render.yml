@@ -1,0 +1,86 @@
+name: Normalize repository for Render
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract source to repository root
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "Central-auth-system-main.zip"
+          rm -rf /tmp/central-auth-unpack
+          mkdir -p /tmp/central-auth-unpack
+          unzip -q "Central-auth-system-main.zip" -d /tmp/central-auth-unpack
+          source_package="$(find /tmp/central-auth-unpack -type f -name package.json -print -quit)"
+          test -n "$source_package"
+          source_root="$(dirname "$source_package")"
+          test -f "$source_root/package.json"
+          test -d "$source_root/src"
+          rm -rf Central-auth-system-main Central-auth-system-main.zip
+          rm -f README.md
+          cp -a "$source_root"/. .
+
+      - name: Add Render Blueprint
+        shell: bash
+        run: |
+          cat > render.yaml <<'YAML'
+          services:
+            - type: web
+              name: central-auth-tevodich
+              runtime: node
+              plan: free
+              region: singapore
+              buildCommand: npm install
+              startCommand: npm start
+              healthCheckPath: /api/health
+              envVars:
+                - key: NODE_ENV
+                  value: production
+                - key: HOST
+                  value: 0.0.0.0
+                - key: TRUST_PROXY
+                  value: "true"
+                - key: BASE_URL
+                  sync: false
+                - key: CSRF_SECRET
+                  sync: false
+                - key: ENCRYPTION_KEY
+                  sync: false
+                - key: OIDC_PRIVATE_KEY_PEM
+                  sync: false
+                - key: OIDC_KID
+                  sync: false
+                - key: OIDC_ENABLED
+                  value: "true"
+                - key: EMAIL_PROVIDER
+                  value: auto
+                - key: REQUIRE_EMAIL_DELIVERY
+                  value: "false"
+                - key: COOKIE_NAME
+                  value: __Host-central_auth_session
+                - key: DATABASE_FILE
+                  value: ./data/auth.db
+          YAML
+
+      - name: Commit normalized root
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Normalize source and add Render deployment config [skip ci]"
+          git push

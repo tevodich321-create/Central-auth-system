@@ -5,9 +5,9 @@ import unzipper from 'unzipper';
 
 const zipPath = path.resolve('Central-auth-system-main.zip');
 const outDir = path.resolve('.render-runtime');
+const fixedAppRoot = path.join(outDir, 'central-auth-v3.3.0');
 
 if (!fs.existsSync(zipPath)) throw new Error(`Missing ${zipPath}`);
-
 fs.rmSync(outDir, { recursive: true, force: true });
 fs.mkdirSync(outDir, { recursive: true });
 
@@ -28,8 +28,6 @@ async function extractZip(filePath, destination) {
 
 await extractZip(zipPath, outDir);
 
-// The GitHub upload may itself contain another zip. Unpack nested archives until
-// the actual Central Auth application is found, while refusing path traversal.
 for (let pass = 0; pass < 3; pass++) {
   const nested = [];
   const walk = (dir) => {
@@ -41,13 +39,8 @@ for (let pass = 0; pass < 3; pass++) {
   };
   walk(outDir);
 
-  const packageExists = (() => {
-    const direct = path.join(outDir, 'central-auth-v3.3.0', 'package.json');
-    if (fs.existsSync(direct)) return true;
-    return nested.some((z) => z.includes('central-auth-v3.3.0'));
-  })();
-
-  if (packageExists) break;
+  const packageAlreadyExists = fs.existsSync(path.join(outDir, 'central-auth-v3.3.0', 'package.json'));
+  if (packageAlreadyExists) break;
   if (!nested.length) break;
 
   for (const nestedZip of nested) {
@@ -57,22 +50,28 @@ for (let pass = 0; pass < 3; pass++) {
   }
 }
 
-function findFile(dir, name) {
+function findPackageRoot(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      const found = findFile(full, name);
-      if (found) return found;
-    } else if (entry.isFile() && entry.name === name) return full;
+      const nested = findPackageRoot(full);
+      if (nested) return nested;
+    } else if (entry.isFile() && entry.name === 'package.json') {
+      const candidate = path.dirname(full);
+      if (fs.existsSync(path.join(candidate, 'src', 'server.js'))) return candidate;
+    }
   }
   return null;
 }
 
-const packagePath = findFile(outDir, 'package.json');
-if (!packagePath) throw new Error('Could not find the application package.json after expanding the uploaded archive.');
+let appRoot = findPackageRoot(outDir);
+if (!appRoot) throw new Error('Could not find Central Auth package.json + src/server.js after expanding the uploaded archive.');
 
-let appRoot = path.dirname(packagePath);
-let serverPath = path.join(appRoot, 'src', 'server.js');
-if (!fs.existsSync(serverPath)) throw new Error(`Found package.json at ${appRoot}, but src/server.js is missing.`);
+if (path.resolve(appRoot) !== path.resolve(fixedAppRoot)) {
+  fs.rmSync(fixedAppRoot, { recursive: true, force: true });
+  fs.mkdirSync(fixedAppRoot, { recursive: true });
+  fs.cpSync(appRoot, fixedAppRoot, { recursive: true });
+  appRoot = fixedAppRoot;
+}
 
 console.log(`Prepared application at ${appRoot}`);

@@ -6,6 +6,7 @@ services:
     region: singapore
     buildCommand: npm install && node prepare-app.mjs && cd .render-runtime/central-auth-v3.3.0 && npm install --omit=dev
     startCommand: node .render-runtime/central-auth-v3.3.0/src/server.js
+    autoDeploy: yes
     envVars:
       - key: NODE_ENV
         value: production
@@ -23,8 +24,14 @@ services:
         value: "false"
       - key: EMAIL_PROVIDER
         value: auto
+      - key: BREVO_ENDPOINT
+        value: https://api.brevo.com/v3/smtp/email
+      - key: BREVO_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
       - key: REQUIRE_EMAIL_DELIVERY
-        value: "false"
+        value: "true"
       - key: COOKIE_NAME
         value: __Host-central_auth_session
       - key: DATABASE_FILE

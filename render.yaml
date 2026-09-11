@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: central-auth-v330-final
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install && node prepare-app.mjs && cd .render-runtime/central-auth-v3.3.0 && npm install --omit=dev
+    startCommand: node .render-runtime/central-auth-v3.3.0/src/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: TRUST_PROXY
+        value: "true"
+      - key: BASE_URL
+        sync: false
+      - key: CSRF_SECRET
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: OIDC_ENABLED
+        value: "false"
+      - key: EMAIL_PROVIDER
+        value: auto
+      - key: REQUIRE_EMAIL_DELIVERY
+        value: "false"
+      - key: COOKIE_NAME
+        value: __Host-central_auth_session
+      - key: DATABASE_FILE
+        value: ./data/auth.db

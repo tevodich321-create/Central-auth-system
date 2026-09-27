@@ -106,12 +106,100 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [5/5] Final verification...
+echo [5/5] Configuring Codex multi-agent support...
+set "CODEX_HOME=%USERPROFILE%\.codex"
+if defined CODEX_HOME set "CODEX_HOME=%CODEX_HOME%"
+if not exist "%CODEX_HOME%" mkdir "%CODEX_HOME%" >nul 2>&1
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$p=Join-Path $env:USERPROFILE '.codex\config.toml';" ^
+  "$dir=Split-Path $p;" ^
+  "New-Item -ItemType Directory -Force -Path $dir | Out-Null;" ^
+  "$lines=@(); if(Test-Path $p){$lines=Get-Content -LiteralPath $p};" ^
+  "$hasFeatures=$false; $start=-1; $end=$lines.Count;" ^
+  "for($i=0;$i -lt $lines.Count;$i++){if($lines[$i] -match '^\s*\[features\]\s*graphify --version
+echo.
+echo Codex:
+codex --version
+echo.
+echo Project Graphify skill:
+echo .codex\skills\graphify\SKILL.md
+echo.
+echo ============================================================
+echo INSTALLATION VERIFIED
+echo ============================================================
+echo.
+echo NEXT:
+echo   1. Run: codex
+echo   2. Sign in with ChatGPT when Codex asks.
+echo   3. Stay in this project folder.
+echo   4. Run: $graphify .
+echo.
+echo First run will create graphify-out\ when Graphify processes
+echo the real project. This installer does NOT fake that result.
+echo.
+echo OPTIONAL FOR GRAPHIFY PARALLEL EXTRACTION:
+echo   Add multi_agent = true under [features] in:
+echo   %%USERPROFILE%%\.codex\config.toml
+echo   Then restart Codex.
+echo.
+pause
+){$hasFeatures=$true;$start=$i;break}};" ^
+  "if($hasFeatures){for($i=$start+1;$i -lt $lines.Count;$i++){if($lines[$i] -match '^\s*\[[^\]]+\]\s*graphify --version
+echo.
+echo Codex:
+codex --version
+echo.
+echo Project Graphify skill:
+echo .codex\skills\graphify\SKILL.md
+echo.
+echo ============================================================
+echo INSTALLATION VERIFIED
+echo ============================================================
+echo.
+echo NEXT:
+echo   1. Run: codex
+echo   2. Sign in with ChatGPT when Codex asks.
+echo   3. Stay in this project folder.
+echo   4. Run: $graphify .
+echo.
+echo First run will create graphify-out\ when Graphify processes
+echo the real project. This installer does NOT fake that result.
+echo.
+echo OPTIONAL FOR GRAPHIFY PARALLEL EXTRACTION:
+echo   Add multi_agent = true under [features] in:
+echo   %%USERPROFILE%%\.codex\config.toml
+echo   Then restart Codex.
+echo.
+pause
+){$end=$i;break}};" ^
+  "  $found=$false; for($i=$start+1;$i -lt $end;$i++){if($lines[$i] -match '^\s*multi_agent\s*='){ $lines[$i]='multi_agent = true'; $found=$true; break }};" ^
+  "  if(-not $found){$head=@(); if($start -ge 0){$head=$lines[0..$end-1]}; $tail=@(); if($end -lt $lines.Count){$tail=$lines[$end..($lines.Count-1)]}; $lines=@($head + 'multi_agent = true' + $tail)}" ^
+  "} else {" ^
+  "  if($lines.Count -gt 0 -and $lines[-1] -ne ''){$lines += ''}; $lines += '[features]'; $lines += 'multi_agent = true'" ^
+  "};" ^
+  "$bak=$p+'.bak'; if(Test-Path $p){Copy-Item -LiteralPath $p -Destination $bak -Force};" ^
+  "Set-Content -LiteralPath $p -Value $lines -Encoding UTF8;" ^
+  "Write-Host ('Codex config updated: '+$p);"
+
+if errorlevel 1 (
+  echo [ERROR] Could not update Codex config.toml.
+  exit /b 1
+)
+
+echo [OK] Codex multi_agent = true configured.
 echo.
 
-if not exist ".agents\skills\graphify\SKILL.md" (
-  echo [INFO] This is expected: Codex uses .codex\skills\graphify\SKILL.md.
+echo [6/6] Final verification...
+echo.
+
+if not exist ".codex\skills\graphify\SKILL.md" (
+  echo [ERROR] Codex Graphify skill is missing:
+  echo         .codex\skills\graphify\SKILL.md
+  exit /b 1
 )
+
+echo [OK] .codex\skills\graphify\SKILL.md exists.
 
 echo Graphify:
 graphify --version
